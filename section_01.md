@@ -5,7 +5,7 @@
 A gem you found solves 90% of what you want it to do. It falls short in one
 particular, important case. You quickly track down the deficiency and write a
 quick patch that you leave within the project. With a note to yourself to open
-up a pull request.
+up a pull request when you have time.
 
 ## A Devil
 
@@ -233,7 +233,11 @@ class String
 end
 ```
 
-> ActiveSupport supplies a similar method to String named `titleize`.
+> ActiveSupport’s inflector provides similar functionality called `titleize`.
+Developers often debate if it is worth adding ActiveSupport to a project if you
+are using it for one such helper method. One benefit is that most Ruby
+developers are familiar with Rails and the additional methods that ActiveSupport
+provides. Making it a more standard choice.
 
 You may also preface or suffix a method with a unique identifier related to the
 project, your name or your organization.
@@ -246,7 +250,7 @@ class String
 end
 ```
 
-### Add a parameter to the method in the re-implementation
+### An optional parameters in the re-implementation
 
 Another possibility is to re-implement the method with the same name except add
 an additional, optional parameter, that you can you provide in the instances
@@ -259,16 +263,24 @@ class String
     self.gsub(regex_will_match) { |a| a.upcase }
   end
 end
-
-"these words are important".capitalize # => "These words are important"
-"these words are important".capitalize(true) # => "These Words Are Important"
 ```
 
 This will preserve all existing uses of `capitialize` while providing the 
 ability to access the new functionality.
 
-Though this implementation gets the job an implementation that leads towards 
-named parameters would likely be more clear.
+```ruby
+"these words are important".capitalize # => "These words are important"
+"these words are important".capitalize(true) # => "These Words Are Important"
+```
+
+Though this implementation gets the job done, the new parameter does not clearly state it's purpose to others reading the code.
+
+```ruby
+"these words are important".capitalize(:all_words => true) # => "These Words Are Important"
+```
+A named parameter would make the intent of this additional parameter more clear.
+
+Here is an implementation that employs optional parameters with defaults:
 
 ```ruby
 class String
@@ -278,9 +290,6 @@ class String
     self.gsub(regex_to_match) { |a| a.upcase }
   end
 end
-
-"these words are important".capitalize(:all_words => true) # => "These Words Are Important"
-
 ```
 
 There are some concerns with this course of action though and that is I have 
@@ -289,8 +298,8 @@ method is well known and the implementation is fairly sound it is not the
 original implementation.
 
 > Consider the situation where the next version of Ruby changes the >
-> functionality of `capitalize`. This overridden method defaults now to an 
-> incorrect implementation.
+  functionality of `capitalize`. This overridden method defaults now to an 
+  incorrect implementation.
     
 So, while a desirable monkey-patching option it is not truly sound unless we
 were able to create this new method while still having a reference to the
@@ -330,7 +339,9 @@ end
 We create a copy, through alias_method, of the `capitalize` method. We call the
 copy of the original `original_capitalize`. 
 
-    alias_method NEW_NAME_FOR_METHOD, ORIGINAL_METHOD
+```ruby
+alias_method new_name_for_method, original_method_name
+```
 
 The reason for that is because we immediately define a new `capitalize` method
 which is able to call the copied method, `original_capitalize` when the user 
@@ -355,7 +366,7 @@ consider this a major problem.
 
 If the unintended effect of the additionally generated method leaves a bad
 taste in your mouth there is another alternative that 
-[Jay Feilds](http://blog.jayfields.com/2006/12/ruby-alias-method-alternative.html) 
+[Jay Fields](http://blog.jayfields.com/2006/12/ruby-alias-method-alternative.html) 
 outlines which employs a number of meta-programming techniques to solve the 
 problem.
 
@@ -461,10 +472,10 @@ So far we have talked about various implementation details about monkey
 patching. What remains is where within your application is the best place to 
 specify your monkey patch.
 
-A convention that I have adopted, having seen it used by a few projects, is
-to create a special directory within my project called `core_ext` (within rails `lib/core_ext`). Each class monkey patched has its own file to ensure that at
-a glance a reader is able to quickly surmise what files have been monkey
-patched.
+A convention that I have adopted, having seen it used by a few projects, is to
+create a special directory within the lib directory of my project called
+`core_ext`. Each class monkey patched has its own file to ensure that at a 
+glance a reader is able to quickly surmise what files have been monkey patched.
 
 ## Summary
 
