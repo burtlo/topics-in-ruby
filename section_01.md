@@ -155,9 +155,9 @@ define an additional method. Perhaps they did not know that String existed and
 intended to define a new class called `String`. Granted this is likely not the
 case based on the implementation chosen by the developer.
 
-    > Defining a new class or appending additional methods to an existing class
-    > uses the same notation so there is no way to understand intention from
-    > reading the code.
+> Defining a new class or appending additional methods to an existing class
+> uses the same notation so there is no way to understand intention from
+> reading the code.
 
 While you are likely not going to make that mistake with `String` and other core
 classes, there is always the possibility that might happen. Checking that a
@@ -217,9 +217,9 @@ stepping on its toes.
 First and likely the simplest solution to solve the possible collision of 
 methods is to select a unique method name.
 
-    > If you want to be absolutely sure you are not re-implementing a method
-    > that already exists it is important that you employ `respond_to?` to 
-    > ensure you have not done any wrong.
+> If you want to be absolutely sure you are not re-implementing a method
+> that already exists it is important that you employ `respond_to?` to 
+> ensure you have not done any wrong.
 
 Defining the method with a very explicit name has the benefit of giving more 
 clarity to those reading the code. It will likely clue them in that this 
@@ -233,7 +233,7 @@ class String
 end
 ```
 
-    > ActiveSupport supplies a similar method to String named `titleize`.
+> ActiveSupport supplies a similar method to String named `titleize`.
 
 You may also preface or suffix a method with a unique identifier related to the
 project, your name or your organization.
@@ -288,9 +288,9 @@ re-implemented the default capitalize method. And while the output of this
 method is well known and the implementation is fairly sound it is not the 
 original implementation.
 
-    > Consider the situation where the next version of Ruby changes the >
-    functionailty of `capitalize`. This overriden method defaults now to an >
-    incorrect implementation.
+> Consider the situation where the next version of Ruby changes the >
+> functionality of `capitalize`. This overridden method defaults now to an 
+> incorrect implementation.
     
 So, while a desirable monkey-patching option it is not truly sound unless we
 were able to create this new method while still having a reference to the
@@ -330,7 +330,7 @@ end
 We create a copy, through alias_method, of the `capitalize` method. We call the
 copy of the original `original_capitalize`. 
 
-    > alias_method NEW_NAME_FOR_METHOD, ORIGINAL_METHOD
+    alias_method NEW_NAME_FOR_METHOD, ORIGINAL_METHOD
 
 The reason for that is because we immediately define a new `capitalize` method
 which is able to call the copied method, `original_capitalize` when the user 
@@ -371,16 +371,110 @@ class String
     else
       capitalize.bind(self).call
     end
-    
   end
 
 end
 ```
 
+There are a number of things at work with this small piece of code.
+
+```ruby
+capitalize = self.instance_method(:capitalize)
+```
+
+Is asking the `String` class for the 
+[UnboundMethod](http://rubydoc.info/stdlib/core/1.9.3/UnboundMethod) object
+associated with `capitalize`. An `UnboundMethod` has some amazing powers of 
+introspection that I would definitely encourage you to explore when you have the 
+time.
+
+> Why does it return an 
+> [UnboundMethod](http://rubydoc.info/stdlib/core/1.9.3/UnboundMethod) 
+> and not a [Method](http://rubydoc.info/stdlib/core/1.9.3/Method)?
+> As a class does not have instance methods, calling `instance_method` returns
+> a method object that is not yet bound to an object. So it is considered 
+> unbounded. Bound methods, `Method`, can also be unbound.
+
+```ruby
+define_method(:capitalize) do |options = {}|
+  # ... other code
+end
+```
+
+Here we are defining a new method with the same name as `capitalize` which
+will accept one parameter. This will allow us to still send our named 
+parameters. Defaulting to a empty `Hash` if no parameters have been specified.
+ 
+```ruby
+capitalize.bind(self).call
+```
+
+Lastly, this is where the `UnboundMethod` will be bound to the instance object
+that is gaining this new `capitialize` method. An `UnboundMethod` must be bound
+before it can be called.
+
 ### include Module (will not override)
 
-### Override give warnings, output error
+You may have at this point used a module to include additional functionality 
+within a class. This is a common way to share functionality between classes.
+
+```ruby
+module OurCapitalize
+  def capitalize
+    self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
+  end
+end
+
+class String
+  include OurCapitalize
+end
+```
+
+Though the `OurCapitalize` module is included in the `String` class it will not
+override the existing methods with the same name. That is because the newly 
+included module is not placed immediately within the object hierarchy but one 
+level above.
+
+Here is a trivial example that demonstrates what is happening:
+
+```ruby
+module B
+
+end
+
+class A
+  include B
+end
+
+A.ancestors # => [A, B, Object, Kernel, BasicObject]
+```
+
+So you can use this fact to your advantage if you want to ensure that you do
+not accidentally override existing methods within a class. However, this may
+not be immediately clear to another reader if they do not know the effect of
+the object hierarchy or were unfamiliar with the class containing the original
+implementation. 
 
 ## Layout of the Code
 
-### Place within core_ext
+So far we have talked about various implementation details about monkey 
+patching. What remains is where within your application is the best place to 
+specify your monkey patch.
+
+A convention that I have adopted, having seen it used by a few projects, is
+to create a special directory within my project called `core_ext` (within rails `lib/core_ext`). Each class monkey patched has its own file to ensure that at
+a glance a reader is able to quickly surmise what files have been monkey
+patched.
+
+## Summary
+
+Monkey patching is a powerful tool at your disposal within the Ruby framework.
+It is undoubtably a great boon as it has the ability to quickly add 
+functionality or quickly replace existing functionality that may be broken or
+not appropriate for the environment you wish to execute within.
+
+Remember, monkey patching can also be a devil as it can bring you misery as 
+you find your understanding of the Ruby language or framework has all of a 
+sudden changed.
+
+Use it wisely.
