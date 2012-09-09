@@ -3,46 +3,39 @@
 ## An Angel
 
 A gem you found solves 90% of what you want it to do. It falls short in one
-particular, important case. You quickly track down the deficiency and write a
-quick patch that you leave within the project. With a note to yourself to open
-up a pull request when you have time.
+particular, important case. You track down the deficiency and write a quick fix.
+You make a mental note to extract your change from the project and submit it
+back to the gem author when you eventually come up for air.
 
 ## A Devil
 
-While running your Rails application you start to notice some peculiar behavior
-where all the words in a particular user entered text are appearing in your
-database with the first letter of each word capitalized. An initial look from
-your client-side code all the way through to your database models all look
-correct. Your tests all pass. It is only when you start debugging that you see
-that all of sudden the capitalize method is no longer simply uppercasing the
-first letter of the first word but uppercasing the first letter of every word.
-What happened?
+While running your application you start to notice a peculiar behavior: all the
+text in the output is appearing capitalized. An initial look through your code
+fails to show anything wrong. It is only after you start debugging you notice
+that the `String#capitalize` method is uppercasing the first letter of every
+word in a string. Searching through Ruby documentation you realize that
+`String#capitalize` should only be uppercasing the first letter of the first
+word. What happened?
 
-Scouring through your code you find the previous maintainer had decided at some
-point found it useful to give capitalize its new meaning.
+Scouring through the code again you find the previous maintainer had decided to re-implement `String#capitalize`; giving the method it's new meaning.
 
 ## Changing Expectations
 
-As developers we develop expectations of how the language and particularly the
-frameworks and libraries work. We depend on it. So when a system starts to
-challenge those expectations we often become very confused.
+As developers we develop expectations of how the language, frameworks and
+libraries all work. We depend on it. So when a system starts to challenge those
+expectations we often become very confused. This may be why Ruby developers fear
+of monkey patching.
 
-That is why I think most developers live in fear of Ruby’s monkey patching. At
-least, that is the expectations painted by the few outspoken developers blogging
-about all the dangers of Ruby’s open classes and monkey patching.
+Monkey patching gets a bad name because as a practice it carries the
+*possibility* of causing all kinds of untold damage and confusion.
 
-Monkey patching gets a bad name because as a practice it carries the possibility
-of causing all kinds of untold damage and confusion. However, I feel as though a
-lot of actions within the software development carry that same possibility.
+Within this section I outline how to monkey patch while providing tactics on
+doing it responsibly.
 
-This section tries to show you how to monkey patch and some tactics for
-attempting to do it safely.
+## What is Monkey Patching?
 
-## Understand the Problem
-
-First and foremost it is important to know how to monkey patch. It is only then
-can you learn to how to find when it has been done and choose safer or
-alternative solutions.
+First and foremost it is important to know how to monkey patch. This is the
+example code snippet that caused the problem in the introduction:
 
 ```ruby
 class String
@@ -52,49 +45,54 @@ class String
 end
 ```
 
-In Ruby it is incredibly easy to monkey patch, hence the constant worry, as
-Ruby’s classes are regarded as being Open Classes. This small snippet of code
-that defines a new capitalize can exist within any source file within your
-project or one of the gems that you use within your project. Simply by running
-this small snippet of code, you change the behavior of String for the entire
-execution of the application (or until it is changed again).
+Ruby's open classes make it incredibly easy to monkey patch. This small snippet
+of could live within your own project or in one of your gems used within your
+project. Once this code is executed, it will change the behavior of
+`String#capitalize` for the entire execution of the application (or until it is
+changed again).
 
-You can quickly verify this by launching IRB, using the original capitalize,
-copy & pasting this small sample of code, and then using capitalize again.
+IRB allows us to quickly verify this behavior:
 
 ```
 :001 > "a good working relationship".capitalize
-=> "A good working relationship" 
+=> "A good working relationship"
 :002 > class String
-:003?>     def capitalize
-:004?>         self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
-:005?>       end
-:006?>   end
- => nil 
+:003?>   def capitalize
+:004?>     self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
+:005?>   end
+:006?> end
+ => nil
 :007 > "a good working relationship".capitalize
- => "A Good Working Relationship" 
+ => "A Good Working Relationship"
 ```
 
-Leaving IRB and returning you will find that all has returned to normal and
-capitalize is once again returned to its former self.
+Opening IRB in another terminal you will find `#capitalize` behaves as it did
+originally.
 
-If you have every tried to do something like this in another programming
-language, you were likely shutdown. Ruby provides you with the awesome power to
-redefine how its core classes work. This is awesome.
+> Quote Mark Anthony from Julius Caesar
+
+Take a moment to admire the power has given you. This is something you would
+never be able to accomplish in many other programming language.
 
 ## Know Before You Patch
 
-The previous capitalize example could have been a mistake by the original
-developer. Perhaps they never intended to overwrite the capitalize method. How
+> With great power comes great responsibility ~ Uncle Ben
+
+The developer monkey patching `String` may have not intended to redefine
+`#capitalize`. They may not have realized that capitalize already existed. How
 could they have known they were going to get in trouble?
+
+> You as a reader may be wondering how this could happen. If they had tried to execute the method before they went to straight to implementing it, they would have been seen that it already existed. Perhaps they had made an attempt to use the method but with a spelling error.
+
 
 ### Using Documentation
 
-Rubydoc.info is an invaluable resource when it comes to providing a browsable
-and searchable resource for classes and methods. Browsing through `String` you
-will find an entry for `capitalize` as well as `capitalize!`.
+[Rubydoc.info](http://www.rubydoc.info/stdlib) is an invaluable resource when it
+comes to providing a browsable and searchable resource for classes and methods.
+Browsing through `String` you will find an entry for `capitalize` as well as
+`capitalize!`.
 
-### instance_methods && methods
+### #instance_methods and #methods
 
 Documentation does not represent the current state of the code within the
 context of your application. Fortunately Ruby allows you to query the methods of
@@ -107,7 +105,7 @@ commonly referred to as introspection.
 String.instance_methods   # => [ :=>, :eql?, :hash, ... ]
 ```
 
-Every class and module will respond to `instance_methods`. `instance_methods`
+Every class and module will respond to `#instance_methods`. `#instance_methods`
 will return all the methods that an instance of `String` will have when it is
 created.
 
@@ -128,7 +126,7 @@ methods `method` for a instance of a `String`.
 
 ### Test Driven Development (TDD)
 
-This is also a situation that TDD would have likely caught.  
+This is also a situation that TDD would have likely caught.
 
 ```ruby
 describe String do
@@ -137,10 +135,8 @@ describe String do
 end
 ```
 
-This following test will fail but with an error that shows `String` already has
-a `capitalize` method defined. Albeit a different one from the expectations. But
-an unexpected error none the less for having not written a single line of
-`capitalize` code.
+This following test will fail with an expectation that the given string does not
+match the expected string.
 
 ```
 Failure/Error: its(:capitalize) { should == "A Good Working Relationship" }
@@ -148,53 +144,40 @@ Failure/Error: its(:capitalize) { should == "A Good Working Relationship" }
             got: "A good working relationship" (using ==)
 ```
 
+If the original developer did not know about the existing method they would have
+been to see the above failed expectation when they were likely expecting:
+
+```
+ Failure/Error: its(:capitalize) { should == "A Good Working Relationship" }
+ NoMethodError:
+   undefined method `capitalize' for "a good working relationship":String
+```
+
+This would raise the question. How is it that this method exists when I have not
+written a single line of code to support it?
+
 ### defined?
 
-We have been making an assumption that the original developer intended only to
-define an additional method. Perhaps they did not know that String existed and
-intended to define a new class called `String`. Granted this is likely not the
-case based on the implementation chosen by the developer.
-
-> Defining a new class or appending additional methods to an existing class
-> uses the same notation so there is no way to understand intention from
-> reading the code.
+We assumed the original developer intended only to define a new method. It is
+possible they had intended to define a new class. Defining a new class and
+appending additional methods to an existing class use the same notation.
 
 While you are likely not going to make that mistake with `String` and other core
 classes, there is always the possibility that might happen. Checking that a
 class or module exists before you implement ensures clarity of intention and
 provides insurance against unintended functionality.
 
-The only way to ensure you are either defining a new class or appending methods
-can be guaranteed through the defined? operator.
+Class names and module names are constants. When you create a class or a module
+you defining a constant. You can determine if a constant is defined by using the
+`defined?` method. `defined?` returns true if the constant is defined and false
+if the constant is not defined.
 
-`defined?` returns true if the constant is defined and false if the constant is
-not defined. When you create a class or a module you defining a constant. Prior
-to the initial declaration the constant has not been defined.
-
-In this example we are ensuring not to define `String` if the class has already
-been defined somewhere else.
-
-```ruby
-unless defined? String
-
-  # Preventing a monkey-patching
-
-  class String
-    def capitalize
-      self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
-    end
-  end
-
-end
-```
-
-However, if you wanted to ensure that you were monkey patching you could have
-used the inverse.
+If your intent is to monkey patch an existing class you would write:
 
 ```ruby
 if defined? String
 
-  # Knowingly monkey-patching
+  # Defining or redefining methods on the existing String class
 
   class String
     def capitalize
@@ -205,25 +188,39 @@ if defined? String
 end
 ```
 
-You likely do not write code this way unless you are extremely paranoid. It
-would become tedious and ruinous to the flexibility of the Ruby code that you
-write, so you often rely on your understanding of Ruby to ensure you are not
-stepping on its toes.
+If you intent is to define a new class you would write:
 
-## Addressing the Problem
+```ruby
+unless defined? String
+
+  # Defining the String class if one has not already been defined.
+
+  class String
+    def capitalize
+      self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
+    end
+  end
+
+end
+```
+
+Many of you will reject this solution. I am in agreement with you. This is far
+too tedious a solution that I think only the extremely paranoid of us would
+accept. So let us continue our exploration for a solution.
+
+## How to Monkey Patch
 
 ### Unique Naming
 
-First and likely the simplest solution to solve the possible collision of 
+First and likely the simplest solution to solve the possible collision of
 methods is to select a unique method name.
 
 > If you want to be absolutely sure you are not re-implementing a method
-> that already exists it is important that you employ `respond_to?` to 
+> that already exists it is important that you employ `respond_to?` to
 > ensure you have not done any wrong.
 
-Defining the method with a very explicit name has the benefit of giving more 
-clarity to those reading the code. It will likely clue them in that this 
-method is monkey patched.
+Defining the method with an explicit name brings both clarity to the reader and
+increases the likelihood that it will not collide with an existing method:
 
 ```ruby
 class String
@@ -233,7 +230,7 @@ class String
 end
 ```
 
-> ActiveSupport’s inflector provides similar functionality called `titleize`.
+> ActiveSupport’s inflector provides similar functionality called `#titleize`.
 Developers often debate if it is worth adding ActiveSupport to a project if you
 are using it for one such helper method. One benefit is that most Ruby
 developers are familiar with Rails and the additional methods that ActiveSupport
@@ -265,7 +262,7 @@ class String
 end
 ```
 
-This will preserve all existing uses of `capitialize` while providing the 
+This will preserve all existing uses of `String#capitialize` while providing the
 ability to access the new functionality.
 
 ```ruby
@@ -273,7 +270,9 @@ ability to access the new functionality.
 "these words are important".capitalize(true) # => "These Words Are Important"
 ```
 
-Though this implementation gets the job done, the new parameter does not clearly state it's purpose to others reading the code.
+Though this implementation gets the job done, the new parameter does not clearly
+state it's purpose to those reading the code. This would be clearer:
+
 
 ```ruby
 "these words are important".capitalize(:all_words => true) # => "These Words Are Important"
@@ -292,200 +291,240 @@ class String
 end
 ```
 
-There are some concerns with this course of action though and that is I have 
-re-implemented the default capitalize method. And while the output of this 
-method is well known and the implementation is fairly sound it is not the 
-original implementation.
+Most developers would be satisfied with this implementation. However, it is
+important to be aware that within our method we re-implemented the original
+`#capitalize` method. While the implementation appears sound it is not
+the original implementation.
 
-> Consider the situation where the next version of Ruby changes the >
-  functionality of `capitalize`. This overridden method defaults now to an 
-  incorrect implementation.
-    
-So, while a desirable monkey-patching option it is not truly sound unless we
-were able to create this new method while still having a reference to the
-original method.
+> Consider the situation where the next version of Ruby changes the functionality of `String#capitalize`. This overridden method defaults to an incorrect implementation.
 
-### Alias Method
+Ideally our new method when used in the default way should call the original
+method. Saving us from re-implementing the original method and preventing issues
+if the original should purposively change.
 
-Preserving the original goal should be paramount if you want to be clever with
-your monkey-patching and that is solely because you will likely introduce harder
-to detect errors when you are executing this code or code that depends on this
-code.
+### Aliasing a Method
 
-An incredibly awesome utility at your disposal is `Modules` 
-[alias_method](http://rubydoc.info/stdlib/core/1.9.3/Module:alias_method) which 
-allows you to create a copy of an existing method with a new name. Essentially
-freeing you up to define a new method with the original name and being able to
-call the original method
-
-```ruby
-class String
-  alias_method :original_capitalize, :capitalize
-  
-  def capitalize(options = {})
-    options = { :all_words => false }.merge options
-    
-    if options[:all_words]
-      self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
-    else
-      original_capitalize
-    end
-    
-  end
-  
-end
-```
-
-We create a copy, through alias_method, of the `capitalize` method. We call the
-copy of the original `original_capitalize`. 
+An incredibly awesome utility at your disposal is
+[Module#alias_method](http://rubydoc.info/stdlib/core/1.9.3/Module:alias_method)
+. `#alias_method` creates a copy of an existing method and assigns it a new
+name.
 
 ```ruby
 alias_method new_name_for_method, original_method_name
 ```
 
-The reason for that is because we immediately define a new `capitalize` method
-which is able to call the copied method, `original_capitalize` when the user 
-has not provided any parameter.
+Within our new `#capitalize` method we can call the code of the original
+capitalize that we have preserved with the new method name
+`#original_capitalize`.
 
-Ruby has a keyword `alias`, but it is far less flexible as `alias_method`.
-
-* http://stackoverflow.com/questions/4763121/ruby-should-i-use-alias-or-alias-method
-* http://blog.bigbinary.com/2012/01/08/alias-vs-alias-method.html
-
-When selecting a name for the aliased method, we could have inadvertently
-overwritten an existing method with that name. Again, you could rely on any
-of the previously outlined tactics for ensuring you have not mistakenly
-overridden a method.
-
-Also, an unintended effect, that may cause problems, is that the class `String` 
-now has a new instance method `original_capitalize` that is an available to be
-called. So if any code relies on the stability of the available instance methods
-consider this a major problem.
-  
-### An alternative to Aliasing
-
-If the unintended effect of the additionally generated method leaves a bad
-taste in your mouth there is another alternative that 
-[Jay Fields](http://blog.jayfields.com/2006/12/ruby-alias-method-alternative.html) 
-outlines which employs a number of meta-programming techniques to solve the 
-problem.
+This is our `#capitalize` using `#alias_method`:
 
 ```ruby
 class String
-  capitalize = self.instance_method(:capitalize)
+  alias_method :original_capitalize, :capitalize
 
-  define_method(:capitalize) do |options = {}|
+  def capitalize(options = {})
     options = { :all_words => false }.merge options
-    
+
     if options[:all_words]
       self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
     else
-      capitalize.bind(self).call
+      original_capitalize
     end
   end
 
 end
 ```
 
-There are a number of things at work with this small piece of code.
+> Ruby has a keyword `alias`, but it is not as flexible as  `Module#alias_method`.
+
+* http://stackoverflow.com/questions/4763121/ruby-should-i-use-alias-or-alias-method
+* http://blog.bigbinary.com/2012/01/08/alias-vs-alias-method.html
+
+There are two caveats to this solution:
+
+First, when selecting the name for the aliased method, we could have
+inadvertently overwritten an existing method with that name. Employing the
+previously defined tactics will help prevent unintended consequences.
+
+Second, the String class now responds to `#capitalize` and
+`#original_capitalize`. Any code that relies on the stability of a class's
+instance methods may be affected by this change.
+
+Despite these two wrinkles I would consider aliasing an acceptable solution.
+
+### An alternative to Aliasing
+
+Thanks to [Jay
+Fields](http://blog.jayfields.com/2006/12/ruby-alias-method-alternative.html)
+for publishing this alternative.
+
+If those costs of aliasing leaves a bad taste in your mouth there is
+alternative.
+
+With aliasing we renamed the original method and then called it. Instead of
+copying this method to a new name what we really want is to do the following:
+
+* Load the original method
+* Store the original method into a temporary variable
+* Define the new method where the default case calls the original method
+
+This can be done in Ruby. Albeit with a few more steps along the way.
+
+#### Loading and storing the original method
+
+First we need to retrieve the method. Module provides a method
+`Module#instance_method` which accepts a single method parameter and returns an
+instance of
+[UnboundMethod](http://rubydoc.info/stdlib/core/1.9.3/UnboundMethod).
 
 ```ruby
-capitalize = self.instance_method(:capitalize)
+capitalize = String.instance_method(:capitalize)
+
+puts capitalize # => <UnboundMethod: String#capitalize>
 ```
 
-Is asking the `String` class for the 
-[UnboundMethod](http://rubydoc.info/stdlib/core/1.9.3/UnboundMethod) object
-associated with `capitalize`. An `UnboundMethod` has some amazing powers of 
-introspection that I would definitely encourage you to explore when you have the 
-time.
+We can also retrieve it from within the class itself:
 
-> Why does it return an 
-> [UnboundMethod](http://rubydoc.info/stdlib/core/1.9.3/UnboundMethod) 
-> and not a [Method](http://rubydoc.info/stdlib/core/1.9.3/Method)?
-> As a class does not have instance methods, calling `instance_method` returns
-> a method object that is not yet bound to an object. So it is considered 
-> unbounded. Bound methods, `Method`, can also be unbound.
-
-```ruby
-define_method(:capitalize) do |options = {}|
-  # ... other code
+```
+class String
+  capitalize_method = self.instance_method(:capitalize)
+  puts capitalize_method # => <UnboundMethod: String#capitalize>
 end
 ```
 
-Here we are defining a new method with the same name as `capitalize` which
-will accept one parameter. This will allow us to still send our named 
-parameters. Defaulting to a empty `Hash` if no parameters have been specified.
- 
+Why does it return an
+[UnboundMethod](http://rubydoc.info/stdlib/core/1.9.3/UnboundMethod) and not a
+[Method](http://rubydoc.info/stdlib/core/1.9.3/Method)?
+
+The list of instance methods maintained by a module are bound to an *instance
+of the module* and not the module. A quick demonstration of this can be seen
+by running the following:
+
 ```ruby
-capitalize.bind(self).call
+puts String.instance_method(:capitalize) # => <UnboundMethod: String#capitalize>
+puts "Try me!".method(:capitalize) # => #<Method: String#capitalize>
 ```
 
-Lastly, this is where the `UnboundMethod` will be bound to the instance object
-that is gaining this new `capitialize` method. An `UnboundMethod` must be bound
-before it can be called.
+#### Defining the new method
 
-### include Module (will not override)
-
-You may have at this point used a module to include additional functionality 
-within a class. This is a common way to share functionality between classes.
+`Module#define_method` allows you to define a method with a block:
 
 ```ruby
-module OurCapitalize
+class String
+  capitalize_method = self.instance_method(:capitalize)
+
+  define_method(:capitalize) do |options = {}|
+    # ... new capitalize implementation
+  end
+
+end
+```
+
+Here we are defining a new `capitalize` method which accepts our hash of named
+parameters; defaulting when no parameters are specified. We want to use
+`#define_method` here because the variable `capitalize_method` is still in scope
+allowing us to reference it. Allowing us to do the following:
+
+```ruby
+class String
+  capitalize_method = self.instance_method(:capitalize)
+
+  define_method(:capitalize) do |options = {}|
+    options = { :all_words => false }.merge options
+
+    if options[:all_words]
+      self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
+    else
+      capitalize_method.bind(self).call
+    end
+  end
+
+end
+```
+
+`UnboundMethod` instances can be bound to any object. In this case we are
+binding it back to the String instance. If it is not bound to an object it
+simply cannot be called.
+
+> Summary TODO
+
+## Where to keep your Monkey Patches
+
+So far we have talked about various implementation details about monkey
+patching. What remains is where within your application is the best place to define your monkey patches.
+
+### Including a Module
+
+Placing your implementation of `#capitalize` within a custom module would allow
+you to apply that functionality to more than one class while also making your
+intentions more clear to other readers.
+
+```ruby
+module CustomCapitalize
   def capitalize
     self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
   end
 end
 
 class String
-  include OurCapitalize
+  include CustomCapitalize
 end
+
+"these words are important".capitalize # => "These words are important"
 ```
 
-Though the `OurCapitalize` module is included in the `String` class it will not
-override the existing methods with the same name. That is because the newly 
-included module is not placed immediately within the object hierarchy but one 
-level above.
+Unfortunately, this does not work!
 
-Here is a trivial example that demonstrates what is happening:
+When the `CustomCapitalize` module is included in the `String` class it **will
+not** override the existing methods with the same name. That is because the
+newly included module is not placed immediately within the String's object
+hierarchy but one level above.
+
+You can see what is happening by looking at String's ancestors:
 
 ```ruby
-module B
-
+module CustomCapitalize
+  def capitalize
+    self.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }
+  end
 end
 
-class A
-  include B
+class String
+  include CustomCapitalize
 end
 
-A.ancestors # => [A, B, Object, Kernel, BasicObject]
+String.ancestors # => [String, CustomCapitalize, Comparable, Object, Kernel, BasicObject]
 ```
 
-So you can use this fact to your advantage if you want to ensure that you do
-not accidentally override existing methods within a class. However, this may
-not be immediately clear to another reader if they do not know the effect of
-the object hierarchy or were unfamiliar with the class containing the original
-implementation. 
+During execution Ruby will look first for `String#capitalize` and only if it is
+not present there will it proceed to look further up the chain at
+`CustomCapitalize#capitalize`.
 
-## Layout of the Code
+You could use this to your advantage if you want to ensure that you do not
+accidentally monkey patch a class. However, I would suggest against this
+implementation because it would likely confuse another reader.
 
-So far we have talked about various implementation details about monkey 
-patching. What remains is where within your application is the best place to 
-specify your monkey patch.
+### The file for your monkey patch
 
-A convention that I have adopted, having seen it used by a few projects, is to
-create a special directory within the lib directory of my project called
-`core_ext`. Each class monkey patched has its own file to ensure that at a 
-glance a reader is able to quickly surmise what files have been monkey patched.
+It is important to keep your monkey patches in a location that allows a reader
+to quickly surmise what has been monkey patched.
+
+A monkey patch should be maintained in a file that matches the name of the class
+you are changing. And that file should be stored in the directory, with an
+*_ext* suffix, named after the gem or the location with in the Ruby library.
+
+I would store `String#capitalize` at `lib/core_ext/string.rb`.
 
 ## Summary
 
 Monkey patching is a powerful tool at your disposal within the Ruby framework.
-It is undoubtably a great boon as it has the ability to quickly add 
+It is undoubtably a great boon as it has the ability to quickly add
 functionality or quickly replace existing functionality that may be broken or
 not appropriate for the environment you wish to execute within.
 
-Remember, monkey patching can also be a devil as it can bring you misery as 
-you find your understanding of the Ruby language or framework has all of a 
-sudden changed.
+But also remember, monkey patching can also be a devil as it can bring you
+misery as you find your understanding of the Ruby language or framework has all
+of a sudden changed.
 
 Use it wisely.
