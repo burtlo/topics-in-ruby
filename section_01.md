@@ -21,12 +21,12 @@ Scouring through the code again you find the previous maintainer had decided to 
 
 ## Changing Expectations
 
-As developers we develop expectations of how the language, frameworks and
-libraries all work. We depend on it. So when a system starts to challenge those
-expectations we often become very confused. This may be why Ruby developers fear
-of monkey patching.
+As developers we have expectations of how the language, frameworks and libraries
+we use works. We depend on it. So when a system starts to challenge those
+expectations we often become very confused.
 
-Monkey patching gets a bad name because as a practice it carries the
+A ruby developer is allowed to add or redefine methods on an existing object.
+This is called monkey patching. Monkey patching as a practice carries the
 *possibility* of causing all kinds of untold damage and confusion.
 
 Within this section I outline how to monkey patch while providing tactics on
@@ -46,10 +46,9 @@ end
 ```
 
 Ruby's open classes make it incredibly easy to monkey patch. This small snippet
-of could live within your own project or in one of your gems used within your
-project. Once this code is executed, it will change the behavior of
-`String#capitalize` for the entire execution of the application (or until it is
-changed again).
+of could live within your own project or in one of project's dependent gems.
+Once this code is executed, it will change the behavior of `String#capitalize`
+for the entire execution of the application (or until it is changed again).
 
 IRB allows us to quickly verify this behavior:
 
@@ -69,14 +68,10 @@ IRB allows us to quickly verify this behavior:
 Opening IRB in another terminal you will find `#capitalize` behaves as it did
 originally.
 
-> Quote Mark Anthony from Julius Caesar
-
 Take a moment to admire the power has given you. This is something you would
 never be able to accomplish in many other programming language.
 
 ## Know Before You Patch
-
-> With great power comes great responsibility ~ Uncle Ben
 
 The developer monkey patching `String` may have not intended to redefine
 `#capitalize`. They may not have realized that capitalize already existed. How
@@ -84,13 +79,12 @@ could they have known they were going to get in trouble?
 
 > You as a reader may be wondering how this could happen. If they had tried to execute the method before they went to straight to implementing it, they would have been seen that it already existed. Perhaps they had made an attempt to use the method but with a spelling error.
 
-
 ### Using Documentation
 
 [Rubydoc.info](http://www.rubydoc.info/stdlib) is an invaluable resource when it
 comes to providing a browsable and searchable resource for classes and methods.
-Browsing through `String` you will find an entry for `capitalize` as well as
-`capitalize!`.
+Browsing through [String](http://www.rubydoc.info/stdlib/core/String) you will find an entry for [capitalize](http://www.rubydoc.info/stdlib/core/String#capitalize-instance_method) as well as
+[capitalize!](http://www.rubydoc.info/stdlib/core/String#capitalize%21-instance_method).
 
 ### #instance_methods and #methods
 
@@ -99,15 +93,19 @@ context of your application. Fortunately Ruby allows you to query the methods of
 an object and the instance methods of a class or module. This practice is
 commonly referred to as introspection.
 
+Every class and module will respond to
+[#instance_methods](http://www.rubydoc.info/stdlib/core/Module#instance_methods-instance_method).
+`#instance_methods` will return all the methods that an instance of `String`
+will have when it is created. This is the exact same list of methods that you
+would find as a result of the methods `methods` for a instance of a `String`.
+
 ```ruby
 "a string object".methods # => [ :=>, :eql?, :hash, ... ]
 "a string object".class   # => String
 String.instance_methods   # => [ :=>, :eql?, :hash, ... ]
 ```
 
-Every class and module will respond to `#instance_methods`. `#instance_methods`
-will return all the methods that an instance of `String` will have when it is
-created.
+This knowledge could be used to your advantage to prevent an unintended monkey patch:
 
 ```ruby
 unless String.instance_methods.include? :capitalize
@@ -120,9 +118,6 @@ unless String.instance_methods.include? :capitalize
 
 end
 ```
-
-This is the exact same list of methods that you would find as a result of the
-methods `method` for a instance of a `String`.
 
 ### Test Driven Development (TDD)
 
@@ -145,7 +140,7 @@ Failure/Error: its(:capitalize) { should == "A Good Working Relationship" }
 ```
 
 If the original developer did not know about the existing method they would have
-been to see the above failed expectation when they were likely expecting:
+seen the above failed expectation when they were likely expecting:
 
 ```
  Failure/Error: its(:capitalize) { should == "A Good Working Relationship" }
@@ -204,22 +199,18 @@ unless defined? String
 end
 ```
 
-Many of you will reject this solution. I am in agreement with you. This is far
-too tedious a solution that I think only the extremely paranoid of us would
-accept. So let us continue our exploration for a solution.
-
-## How to Monkey Patch
+## Safer Monkey Patching
 
 ### Unique Naming
 
-First and likely the simplest solution to solve the possible collision of
+First and likely the simplest solution is to solve the possible collision of
 methods is to select a unique method name.
 
 > If you want to be absolutely sure you are not re-implementing a method
 > that already exists it is important that you employ `respond_to?` to
 > ensure you have not done any wrong.
 
-Defining the method with an explicit name brings both clarity to the reader and
+Defining the method with an explicit name brings clarity to the reader and
 increases the likelihood that it will not collide with an existing method:
 
 ```ruby
@@ -247,7 +238,7 @@ class String
 end
 ```
 
-### An optional parameters in the re-implementation
+### Add an optional parameter in the re-implementation
 
 Another possibility is to re-implement the method with the same name except add
 an additional, optional parameter, that you can you provide in the instances
@@ -279,7 +270,7 @@ state it's purpose to those reading the code. This would be clearer:
 ```
 A named parameter would make the intent of this additional parameter more clear.
 
-Here is an implementation that employs optional parameters with defaults:
+Here is an implementation that employs named parameters:
 
 ```ruby
 class String
@@ -292,15 +283,15 @@ end
 ```
 
 Most developers would be satisfied with this implementation. However, it is
-important to be aware that within our method we re-implemented the original
-`#capitalize` method. While the implementation appears sound it is not
+important to be aware that we re-implemented the original `#capitalize` method
+within our new `capitalize`. While the implementation appears sound it is not
 the original implementation.
 
-> Consider the situation where the next version of Ruby changes the functionality of `String#capitalize`. This overridden method defaults to an incorrect implementation.
+> Also consider the situation where the next version of Ruby changes the functionality of the original method. This means our overridden method would default would be incorrect.
 
-Ideally our new method when used in the default way should call the original
-method. Saving us from re-implementing the original method and preventing issues
-if the original should purposively change.
+Ideally our new method would call the original method when used the default way.
+Saving us from re-implementing the original method and preventing issues if the
+original should purposively change.
 
 ### Aliasing a Method
 
@@ -317,7 +308,7 @@ Within our new `#capitalize` method we can call the code of the original
 capitalize that we have preserved with the new method name
 `#original_capitalize`.
 
-This is our `#capitalize` using `#alias_method`:
+This is an implementation using `#alias_method`:
 
 ```ruby
 class String
@@ -343,21 +334,17 @@ end
 
 There are two caveats to this solution:
 
-First, when selecting the name for the aliased method, we could have
-inadvertently overwritten an existing method with that name. Employing the
-previously defined tactics will help prevent unintended consequences.
+First, when selecting the name for the new alias method, we could have
+inadvertently overwritten an existing method. Though, we could employ the
+previously outlined tactics to prevent unintended consequences.
 
-Second, the String class now responds to `#capitalize` and
-`#original_capitalize`. Any code that relies on the stability of a class's
-instance methods may be affected by this change.
+Second, `String` now responds to `#capitalize` and `#original_capitalize`. Any
+code that relies on the stability of a class's instance methods may be affected
+by this change.
 
 Despite these two wrinkles I would consider aliasing an acceptable solution.
 
 ### An alternative to Aliasing
-
-Thanks to [Jay
-Fields](http://blog.jayfields.com/2006/12/ruby-alias-method-alternative.html)
-for publishing this alternative.
 
 If those costs of aliasing leaves a bad taste in your mouth there is
 alternative.
@@ -365,17 +352,22 @@ alternative.
 With aliasing we renamed the original method and then called it. Instead of
 copying this method to a new name what we really want is to do the following:
 
-* Load the original method
-* Store the original method into a temporary variable
-* Define the new method where the default case calls the original method
+* Retrieve the original method by name
+* Keep a copy of the original method
+* Define the replacement method
+* For the default case within the new method execute the original method
 
-This can be done in Ruby. Albeit with a few more steps along the way.
+This can be all be done in Ruby with introspection and meta-programming.
 
-#### Loading and storing the original method
+> Thanks to [Jay
+Fields](http://blog.jayfields.com/2006/12/ruby-alias-method-alternative.html)
+for reposting [Martin Traverson](http://split-s.blogspot.com/2006/01/replacing-methods.html)'s solution.
 
-First we need to retrieve the method. Module provides a method
-`Module#instance_method` which accepts a single method parameter and returns an
-instance of
+#### Retrieving the original method
+
+First we need to retrieve the method. Module provides the method
+[instance_method](http://www.rubydoc.info/stdlib/core/Module#instance_method-instance_method)
+which accepts the name of the method as a parameter and returns an instance of
 [UnboundMethod](http://rubydoc.info/stdlib/core/1.9.3/UnboundMethod).
 
 ```ruby
@@ -406,7 +398,7 @@ puts String.instance_method(:capitalize) # => <UnboundMethod: String#capitalize>
 puts "Try me!".method(:capitalize) # => #<Method: String#capitalize>
 ```
 
-#### Defining the new method
+#### Defining the replacement method
 
 `Module#define_method` allows you to define a method with a block:
 
@@ -424,7 +416,7 @@ end
 Here we are defining a new `capitalize` method which accepts our hash of named
 parameters; defaulting when no parameters are specified. We want to use
 `#define_method` here because the variable `capitalize_method` is still in scope
-allowing us to reference it. Allowing us to do the following:
+allowing us to reference it. Producing the following:
 
 ```ruby
 class String
@@ -446,8 +438,6 @@ end
 `UnboundMethod` instances can be bound to any object. In this case we are
 binding it back to the String instance. If it is not bound to an object it
 simply cannot be called.
-
-> Summary TODO
 
 ## Where to keep your Monkey Patches
 
@@ -514,17 +504,18 @@ A monkey patch should be maintained in a file that matches the name of the class
 you are changing. And that file should be stored in the directory, with an
 *_ext* suffix, named after the gem or the location with in the Ruby library.
 
-I would store `String#capitalize` at `lib/core_ext/string.rb`.
+As `String` resides within Ruby's core library I would store `String#capitalize`
+at `lib/core_ext/string.rb`.
 
 ## Summary
 
-Monkey patching is a powerful tool at your disposal within the Ruby framework.
-It is undoubtably a great boon as it has the ability to quickly add
+Monkey patching is a powerful tool at your disposal. The ability to quickly add
 functionality or quickly replace existing functionality that may be broken or
-not appropriate for the environment you wish to execute within.
+not appropriate for the environment you wish to execute within is undoubtably a
+great boon.
 
-But also remember, monkey patching can also be a devil as it can bring you
-misery as you find your understanding of the Ruby language or framework has all
-of a sudden changed.
+But also remember, monkey patching can also be a devil. Changing the fundamental
+expectations of the language is like changing the rules of the game after it has
+started.
 
 Use it wisely.
